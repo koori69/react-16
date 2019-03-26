@@ -543,3 +543,246 @@ export default class Lazy extends React.Component {
 
 ### Context
 
+提供了一个无需为每层组件手动添加props，就能在组件树间进行数据传递的方法。
+
+我们用Context来实现一个根据权限显示不同内容的例子
+
+创建context对象
+
+```typescript
+let permissions=['USER','PRODUCT','ORDER']
+
+const PermissionContext = React.createContext(permissions)
+```
+
+> 当React渲染的一个订阅了这个Context对象的组件，这个组件从组件树中离自身最近的那个匹配的Provider中读取到当前的context值。
+>
+> 只有当组件所处的树中没有匹配到Provider时，其defaultValue参数才会生效。
+
+创建消费者组件
+
+```typescript
+const UserMemu: React.FunctionComponent = props => (
+  <PermissionContext.Consumer>
+    {list => {
+      if (list.indexOf('USER') > -1) {
+        return <h1>HAS USER MENU</h1>
+      } else {
+        return <h1>NO USER MENU</h1>
+      }
+    }}
+  </PermissionContext.Consumer>
+)
+
+const ProductMemu: React.FunctionComponent = props => (
+  <PermissionContext.Consumer>
+    {list => {
+      if (list.indexOf('PRODUCT') > -1) {
+        return <h1>HAS PRODUCT MENU</h1>
+      } else {
+        return <h1>NO PRODUCT MENU</h1>
+      }
+    }}
+  </PermissionContext.Consumer>
+)
+
+const OrderMemu: React.FunctionComponent = props => (
+  <PermissionContext.Consumer>
+    {list => {
+      if (list.indexOf('ORDER') > -1) {
+        return <h1>HAS ORDER MENU</h1>
+      } else {
+        return <h1>NO ORDER MENU</h1>
+      }
+    }}
+  </PermissionContext.Consumer>
+)
+```
+
+创建导航组件
+
+```typescript
+interface IState {
+  permissions: string[]
+}
+export default class Navigator extends React.Component<{}, IState> {
+  constructor(props: any) {
+    super(props)
+    this.state = { permissions }
+  }
+
+  private addUser = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+    const p = this.state.permissions
+    if (p.indexOf('USER') < 0) {
+      p.push('USER')
+      this.setState({ permissions: p })
+    }
+    console.log(p)
+  }
+  private removeUser = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+    const p = this.state.permissions
+    if (p.indexOf('USER') > -1) {
+      p.splice(p.indexOf('USER'), 1)
+      this.setState({ permissions: p })
+    }
+    console.log(p)
+  }
+
+  private addProduct = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+    const p = this.state.permissions
+    if (p.indexOf('PRODUCT') < 0) {
+      p.push('PRODUCT')
+      this.setState({ permissions: p })
+    }
+    console.log(p)
+  }
+  private removeProduct = (
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>
+  ) => {
+    const p = this.state.permissions
+    if (p.indexOf('PRODUCT') > -1) {
+      p.splice(p.indexOf('PRODUCT'), 1)
+      this.setState({ permissions: p })
+    }
+    console.log(p)
+  }
+  private addOrder = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+    const p = this.state.permissions
+    if (p.indexOf('ORDER') < 0) {
+      p.push('ORDER')
+      this.setState({ permissions: p })
+    }
+    console.log(p)
+  }
+  private removeOrder = (
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>
+  ) => {
+    const p = this.state.permissions
+    if (p.indexOf('ORDER') > -1) {
+      p.splice(p.indexOf('ORDER'), 1)
+      this.setState({ permissions: p })
+    }
+    console.log(p)
+  }
+  public render() {
+    return (
+      <div>
+        <PermissionContext.Provider value={permissions}>
+          <UserMemu />
+          <ProductMemu />
+          <OrderMemu />
+        </PermissionContext.Provider>
+        <button onClick={this.addUser}>add user permission</button>
+        <button onClick={this.removeUser}>remove user permission</button>
+        <button onClick={this.addProduct}>add product permission</button>
+        <button onClick={this.removeProduct}>remove product permission</button>
+        <button onClick={this.addOrder}>add order permission</button>
+        <button onClick={this.removeOrder}>remove order permission</button>
+      </div>
+    )
+  }
+}
+```
+
+> <PermissionContext.Provider value={permissions}> 这里没有使用this.state.permission，因为二者其实是指向同一个地址的，所以效果等价
+
+### 异常捕获边界
+
+部分UI中的JavaScript错误不应该破坏整个应用程序。 为了解决React用户的这个问题，React 16引入了一个新的“错误边界”概念。
+
+错误边界是React组件，它们在其子组件树中的任何位置捕获JavaScript错误，记录这些错误，并显示回退UI而不是崩溃的组件树。 错误边界在渲染期间，生命周期方法以及它们下面的整个树的构造函数中捕获错误。
+
+**定义：**类组件实现以下方法的一个或都实现，
+
+- `static getDerivedStateFromError()`
+
+  在错误发生后加载fallback UI
+
+- `componentDidCatch()`
+
+  记录错误信息
+
+**二者的比较**：
+
+`componentDidCatch`:
+
+-  总是在浏览器中调用
+- 在DOM已经更新的“提交阶段”期间调用
+- 应该用于错误报告之类的东西
+
+`getDerivedStateFromError`:
+
+- 在服务器端呈现期间也会调用
+- 当DOM尚未更新时，在“提交阶段”之前调用
+- 应该用于渲染回退UI
+
+**可以捕获在组件树内的错误信息，但以下错误无法捕获：**
+
+- 事件的处理方法
+- 异步代码（回调)
+- 服务端加载
+- 由异常捕获边界内发生的错误
+
+创建个异常捕获边界组件
+
+```typescript
+import * as React from 'react';
+
+interface IErrorBoundryState {
+  error?: any
+}
+
+export default class ErrorBoundary extends React.Component<
+  {},
+  IErrorBoundryState
+> {
+  constructor(props: any) {
+    super(props)
+    this.state = { error: null }
+  }
+
+  public static getDerivedStateFromError(error: any) {
+    // Update state so the next render will show the fallback UI.
+    return { error }
+  }
+
+  public componentDidCatch(error: any) {
+    // You can also log the error to an error reporting service
+    this.setState({
+      error
+    })
+  }
+
+  public render() {
+    if (this.state.error) {
+      // Error path
+      return (
+        <div>
+          <h2>Something went wrong.</h2>
+          <details style={{ whiteSpace: 'pre-wrap' }}>
+            {this.state.error.stack}
+          </details>
+        </div>
+      )
+    }
+    // Normally, just render children
+    return this.props.children
+  }
+}
+```
+
+修改Navigator.tsx
+
+```typescript
+public render() {
+    if (this.state.permissions.length === 0) {
+      throw new Error('no data')
+    }
+    ...
+}
+```
+
+这样当permissions中没有数据时就会抛出异常，然后异常就会被捕获，并在页面端显示，整个页面也照样可以正常进行。**出错的UI会被React从页面端删除**
+
+### Refs转发
+
